@@ -92,8 +92,10 @@ module Tire
 
         STDERR.puts "[ERROR] Document #{document.inspect} does not have ID" unless id
 
+        parent_str = get_optional_parent_from_document(document, type)
+
         output = []
-        output << %Q|{"index":{"_index":"#{@name}","_type":"#{type}","_id":"#{id}"}}|
+        output << %Q|{"index":{"_index":"#{@name}","_type":"#{type}","_id":"#{id}"#{parent_str}}}|
         output << convert_document_to_json(document)
         output.join("\n")
       end
@@ -350,6 +352,24 @@ module Tire
       end
       $VERBOSE = old_verbose
       id
+    end
+
+    def get_optional_parent_from_document(document, type)
+      if mapping[type]['_parent']
+        parent_type = mapping[type]['_parent']['type']
+
+        accessor = "#{parent_type}_id"
+        parent_id = case
+        when document.is_a?(Hash)
+          parent_id = document[accessor]
+        when document.respond_to?(accessor)
+          parent_id = document.send(accessor)
+        else
+          STDERR.puts "[ERROR] couldn't find #{accessor} for parent of #{document}"
+        end
+
+        %(,"_parent":"#{parent_id}")
+      end || ''
     end
 
     def convert_document_to_json(document)
